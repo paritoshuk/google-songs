@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Search Results</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.4.1.js" integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU=" crossorigin="anonymous"></script>
+    <style>
+        label {
+            display: block;
+            padding: 0.5rem;
+            position: relative;
+        }
+        
+        label input {
+            display: none;
+        }
+        
+        label span {
+            border: 3px solid #ccc;
+            width: 40px;
+            height: 40px;
+            padding: 50%;
+            position: absolute;
+            overflow: hidden;
+            line-height: 1;
+            text-align: center;
+            border-radius: 100%;
+            font-size: 16pt;
+            left: 0;
+            top: 50%;
+        }
+        
+        input:checked+span {
+            background: #aaa;
+            border-color: #ccf;
+        }
+    </style>
+</head>
+
+<body>
+    {% load static %}
+    <nav class="navbar navbar-expand-lg navbar-light bg-light shadow fixed-top mb-5">
+        <a class="navbar-brand" href="#">
+            <img src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_92x30dp.png" alt="">
+        </a>
+        <form id="search" class="form my-2 my-lg-0 col-md-5" action="/results" method="GET">
+            <input value="{{link}}" class="form-control rounded-pill shadow-sm mr-sm-2" type="search" aria-label="Search">
+        </form>
+    </nav>
+    <div class="container mt-5 py-5">
+        <div class="row mb-3">
+            <div class="col-md-8">
+                <h2>Rank the following songs on the basis of similarity with the input song</h2>
+            </div>
+        </div>
+        {% for song in songs %}
+        <div class="col-md-6 mb-3">
+            <div class="row">
+                <div class="col-md-1">
+                    <label>
+                        <input type="checkbox" />
+                        <span></span>
+                    </label>
+                </div>
+                <div class="col-md-11">
+                    <audio controls class="w-100">
+                        <source src="{% static song %}" type="audio/mp3">
+                        Your browser does not support the audio element.
+                    </audio>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <script>
+        $(document).ready(function() {
+            ranks = [];
+            array = [];
+            i = 1;
+            $('input:checkbox').on('click', function() {
+                if ($(this).is(':checked')) {
+                    ranks.push(i);
+                    $(this).next('span').html(i++);
+                    array.push($(this).parents('.col-md-1').next('.col-md-11').find('source').attr('src'));
+                } else {
+                    $(this).next('span').html('');
+                    var index = array.indexOf($(this).parents('.col-md-1').next('.col-md-11').find('source').attr('src'));
+                    var rindex = ranks.indexOf(i);
+                    if (index > -1) {
+                        array.splice(index, 1);
+                    }
+                    if (rindex > -1) {
+                        ranks.splice(rindex, 1);
+                    }
+                    i = i - 1;
+                }
+                if (array.length == 3) {
+                    var today = new Date();
+                    var date = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
+                    var time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+                    var dateTime = date + ' ' + time;
+                    $.each(array, function(i, v) {
+                        $.ajax({
+                            type: "POST",
+                            url: "http://localhost:8000/songs/",
+                            data: {
+                                input_link: '{{link}}',
+                                output_link: v,
+                                ranking: ranks[i],
+                                user_played: 1,
+                                time_stamp: dateTime,
+                                csrfmiddlewaretoken: '{{ csrf_token }}'
+                            },
+                            dataType: "json",
+                            success: function(response) {
+                                console.log(response);
+                            },
+                            error: function(error) {
+                                console.log(error.responseText);
+                            }
+                        });
+                    });
+                    alert('Your data has been submitted');
+                    location.href = '/';
+                }
+            });
+            $('#search').on('submit', function(e) {
+                e.preventDefault();
+                var regex = /^((?:https?:)?\/\/)?((?:www|m)\.)?((?:youtube\.com|youtu.be))(\/(?:[\w\-]+\?v=|embed\/|v\/)?)([\w\-]+)(\S+)?$/;
+                var value = $('#search input').val();
+                if (regex.test(value) || value.includes('youtube.com') || value.includes('youtu.be')) {
+                    var match = regex.exec(value);
+                    $('#search')[0].submit();
+                } else {
+                    alert('Not a youtube link.');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
